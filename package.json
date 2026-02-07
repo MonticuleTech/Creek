@@ -1,0 +1,33 @@
+{
+  "name": "creek",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@popperjs/core": "^2.11.8",
+    "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
+    "@tauri-apps/plugin-fs": "^2.4.5",
+    "@tauri-apps/plugin-log": "^2.8.0",
+    "@tauri-apps/plugin-opener": "^2",
+    "bootstrap": "^5.3.8",
+    "diff-match-patch": "^1.0.5",
+    "markdown-it": "^14.1.0",
+    "mermaid": "^11.12.2",
+    "pinia": "^3.0.4",
+    "split.js": "^1.6.5",
+    "vue": "^3.5.13",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2",
+    "@vitejs/plugin-vue": "^5.2.1",
+    "vite": "^6.0.3"
+  }
+}

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="_图层_1" data-name="图层 1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 1024 1024">
+  <defs>
+    <style>
+      .cls-1 {
+        fill: url(#_未命名的渐变_17);
+      }
+
+      .cls-2 {
+        fill: url(#_未命名的渐变_16);
+      }
+    </style>
+    <linearGradient id="_未命名的渐变_16" data-name="未命名的渐变 16" x1="665.45" y1="769.96" x2="736.44" y2="1281.05" gradientTransform="translate(0 1) scale(.5)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#e0e7a0"/>
+      <stop offset=".49" stop-color="#c1c989"/>
+      <stop offset=".85" stop-color="#81986a"/>
+      <stop offset=".98" stop-color="#7d9569"/>
+      <stop offset="1" stop-color="#89a07b"/>
+    </linearGradient>
+    <linearGradient id="_未命名的渐变_17" data-name="未命名的渐变 17" x1="1513.84" y1="923.79" x2="1532.16" y2="1277.31" gradientTransform="translate(0 1) scale(.5)" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#9fb296"/>
+      <stop offset=".4" stop-color="#97ad8b"/>
+      <stop offset="1" stop-color="#5e6c53"/>
+    </linearGradient>
+  </defs>
+  <g id="logo">
+    <path class="cls-2" d="M186.55,574.64c102.57-3.56,122.55-57.34,177.93-127.67,46.7-59.31,105.06-99.51,184.9-81.99,19.71,4.32,69.77,24.2,74.61,45.83,4.18,18.68-15.46,30.14-24.25,44.54-19.6,32.13-25.22,72.91-45.67,105.26-25.9,40.98-68.25,69.84-117.65,72-36.65.27-73.29.44-109.95.5h-169.42c-19.16-.07-38.32-.23-57.47-.5-32.25-2.6-33.12-54.5.5-57.47,28.81-.37,57.63-.53,86.46-.5Z"/>
+    <path class="cls-1" d="M603.35,633.12c-20.55-1.38-30.44-15.45-19.4-34.14,7.91-13.38,17.36-23.38,24.66-38.31,9.19-18.8,26.5-78.3,38.98-88.45,28.05-22.83,48.28,21.02,62.01,37.91,48.91,60.13,92.18,63.77,166.11,64.53,16.17-.32,32.33-.15,48.48.5,33.14,4.84,32.64,53.44,0,57.47-96.94.45-193.89.61-290.86.5-.5,0-1,0-1.5,0h-28.49Z"/>
+  </g>
+</svg>
