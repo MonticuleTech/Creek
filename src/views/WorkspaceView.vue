@@ -90,6 +90,7 @@ import {
   readDir, 
   readTextFile, 
   writeTextFile,
+  writeFile,
   remove,
   rename,
   stat
@@ -185,29 +186,35 @@ export default {
               isDirectory: true,
               uploadedAt: Date.now()
             });
-          } else if (entry.name && (entry.name.endsWith('.txt') || entry.name.endsWith('.md'))) {
+          } else if (entry.name) {
             try {
               const filePath = `creek/uploads/${entry.name}`;
-              const content = await readTextFile(filePath, { baseDir: BaseDirectory.AppData });
-              const fileStat = await stat(filePath, { baseDir: BaseDirectory.AppData });
+              const isText = entry.name.endsWith('.txt') || entry.name.endsWith('.md');
+              let content = null;
               
+              if (isText) {
+                content = await readTextFile(filePath, { baseDir: BaseDirectory.AppData });
+              }
+              
+              const fileStat = await stat(filePath, { baseDir: BaseDirectory.AppData });
               const time = fileStat.mtime ? new Date(fileStat.mtime).getTime() : Date.now();
 
               loadedFiles.push({
                 name: entry.name,
                 content: content,
                 isDirectory: false,
-                uploadedAt: time
+                uploadedAt: time,
+                isText: isText
               });
             } catch (err) {
-              console.error(`Failed to read file ${entry.name}:`, err);
+              console.error(`Failed to process file ${entry.name}:`, err);
             }
           }
         }
         
         localFiles.value = loadedFiles;
         files.value = loadedFiles;
-        console.log(`Loaded ${loadedFiles.length} uploaded files`);
+        console.log(`Loaded ${loadedFiles.length} files`);
       } catch (err) {
         console.error('Failed to load file list:', err);
         localFiles.value = [];
@@ -247,23 +254,25 @@ export default {
         try {
           const reader = new FileReader();
           reader.onload = async (e) => {
-            const content = e.target.result;
-            const fileName = file.name.endsWith('.txt') ? file.name : `${file.name}.txt`;
+            const arrayBuffer = e.target.result;
+            const fileName = file.name; // Keep original extension
+            const isText = fileName.endsWith('.txt') || fileName.endsWith('.md');
             
-            await writeTextFile(`creek/uploads/${fileName}`, content, { 
+            await writeFile(`creek/uploads/${fileName}`, new Uint8Array(arrayBuffer), { 
               baseDir: BaseDirectory.AppData 
             });
             
             const newFile = {
               name: fileName,
-              content: content,
-              uploadedAt: Date.now()
+              content: isText ? new TextDecoder().decode(arrayBuffer) : null,
+              uploadedAt: Date.now(),
+              isText: isText
             };
             localFiles.value.push(newFile);
             files.value = [...localFiles.value];
             console.log(`File saved: ${fileName}`);
           };
-          reader.readAsText(file);
+          reader.readAsArrayBuffer(file);
         } catch (err) {
           console.error('Failed to upload file:', err);
         }
@@ -275,11 +284,20 @@ export default {
 
     const selectFile = async (file) => {
       await flushPendingSaveIfNeeded();
+      
+      // Update selection first
       selectedFile.value = file.name;
       selectedFiles.value = [file.name];
-      currentEditingFile.value = file.name;
-      isEditingRecording.value = false;
-      documentContent.value = file.content || '';
+
+      // Only load into editor if it's a text file
+      if (file.isText) {
+        currentEditingFile.value = file.name;
+        isEditingRecording.value = false;
+        documentContent.value = file.content || '';
+      } else {
+        // If not a text file, do NOT open/preview it (just select it in sidebar)
+        console.log(`File ${file.name} is not a previewable text file.`);
+      }
     };
 
     const selectRecording = async (recordingName) => {
@@ -404,23 +422,25 @@ export default {
         try {
           const reader = new FileReader();
           reader.onload = async (e) => {
-            const content = e.target.result;
-            const fileName = file.name.match(/\.(md|txt)$/) ? file.name : `${file.name}.txt`;
+            const arrayBuffer = e.target.result;
+            const fileName = file.name; // Keep original extension
+            const isText = fileName.endsWith('.txt') || fileName.endsWith('.md');
 
-            await writeTextFile(`creek/uploads/${fileName}`, content, {
+            await writeFile(`creek/uploads/${fileName}`, new Uint8Array(arrayBuffer), {
               baseDir: BaseDirectory.AppData
             });
 
             const newFile = {
               name: fileName,
-              content: content,
-              uploadedAt: Date.now()
+              content: isText ? new TextDecoder().decode(arrayBuffer) : null,
+              uploadedAt: Date.now(),
+              isText: isText
             };
             localFiles.value.push(newFile);
             files.value = [...localFiles.value];
             console.log(`Dropped file saved: ${fileName}`);
           };
-          reader.readAsText(file);
+          reader.readAsArrayBuffer(file);
         } catch (err) {
           console.error('Failed to handle dropped file:', err);
         }
@@ -493,6 +513,7 @@ export default {
             const fileIdx = localFiles.value.findIndex(f => f.name === oldNameFile);
             if (fileIdx !== -1) {
               localFiles.value[fileIdx].name = newName;
+              localFiles.value[fileIdx].isText = newName.endsWith('.txt') || newName.endsWith('.md');
             }
             files.value = [...localFiles.value];
             
