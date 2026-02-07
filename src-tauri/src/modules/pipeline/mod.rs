@@ -612,6 +612,18 @@ pub async fn run_pipeline(app_handle: AppHandle, mut cmd_rx: mpsc::Receiver<Pipe
                         let text = std::mem::take(&mut pending_transcript);
                         holdback_deadline = None;
                         
+                        // Combine any internal buffered text from aggregator with the new text
+                        // to ensure the entire turn is processed as a WHOLE unit.
+                        let mut turn_text = speech_agg.flush();
+                        if !text.is_empty() {
+                            if !turn_text.is_empty() { turn_text.push(' '); }
+                            turn_text.push_str(&text);
+                        }
+
+                        if turn_text.is_empty() {
+                            continue;
+                        }
+
                         // Resolve recording path
                         let recording_path = if let Some(rec_id) = &current_recording_id {
                             get_current_workspace_recordings_dir(&app_handle).await.map(|d| d.join(rec_id))
@@ -619,55 +631,49 @@ pub async fn run_pipeline(app_handle: AppHandle, mut cmd_rx: mpsc::Receiver<Pipe
                             None
                         };
 
-                        for speech in speech_agg.push(&text) {
-                            // Create new cancellation token for this processing
-                            let cancel_token = CancellationToken::new();
-                            processing_cancellation_token = Some(cancel_token.clone());
-                            
-                            let doc_service_clone = doc_service.clone();
-                            let llm_coder_clone = llm_coder.clone();
-                            let llm_flash_clone = llm_flash.clone();
-                            let app_handle_clone = app_handle.clone();
-                            let state_manager_clone = state_manager.clone();
-                            let git_manager_clone = git_manager.clone();
-                            let todo_agent_clone = todo_agent.clone();
-                            let rag_service_clone = rag_service.clone();
-                            let intent_router_clone = intent_router.clone();
-                            let current_recording_id_clone = current_recording_id.clone();
-                            let recording_path_clone = recording_path.clone();
-                            let chat_history_clone = chat_history.clone();
-                            
-                            tokio::spawn(async move {
-                                tokio::select! {
-                                    _ = cancel_token.cancelled() => {
-                                        info!("[Processing Aborted] Task cancelled");
-                                    }
-                                    _ = process_transcript(
-                                        speech, 
-                                        &doc_service_clone, 
-                                        &llm_coder_clone,
-                                        &llm_flash_clone,
-                                        &app_handle_clone, 
-                                        &chat_history_clone,
-                                        &state_manager_clone,
-                                        &git_manager_clone,
-                                        &todo_agent_clone,
-                                        &rag_service_clone,
-                                        &intent_router_clone,
-                                        current_recording_id_clone.as_ref(),
-                                        recording_path_clone.as_deref(),
-                                    ) => {
-                                        info!("[Processing Complete]");
-                                    }
+                        // Create new cancellation token for this processing
+                        let cancel_token = CancellationToken::new();
+                        processing_cancellation_token = Some(cancel_token.clone());
+                        
+                        let doc_service_clone = doc_service.clone();
+                        let llm_coder_clone = llm_coder.clone();
+                        let llm_flash_clone = llm_flash.clone();
+                        let app_handle_clone = app_handle.clone();
+                        let state_manager_clone = state_manager.clone();
+                        let git_manager_clone = git_manager.clone();
+                        let todo_agent_clone = todo_agent.clone();
+                        let rag_service_clone = rag_service.clone();
+                        let intent_router_clone = intent_router.clone();
+                        let current_recording_id_clone = current_recording_id.clone();
+                        let recording_path_clone = recording_path.clone();
+                        let chat_history_clone = chat_history.clone();
+                        
+                        tokio::spawn(async move {
+                            tokio::select! {
+                                _ = cancel_token.cancelled() => {
+                                    info!("[Processing Aborted] Task cancelled");
                                 }
-                            });
-                        }
+                                _ = process_transcript(
+                                    turn_text, 
+                                    &doc_service_clone, 
+                                    &llm_coder_clone,
+                                    &llm_flash_clone,
+                                    &app_handle_clone, 
+                                    &chat_history_clone,
+                                    &state_manager_clone,
+                                    &git_manager_clone,
+                                    &todo_agent_clone,
+                                    &rag_service_clone,
+                                    &intent_router_clone,
+                                    current_recording_id_clone.as_ref(),
+                                    recording_path_clone.as_deref(),
+                                ) => {
+                                    info!("[Processing Complete]");
+                                }
+                            }
+                        });
 
-                        if !speech_agg.buf.is_empty() {
-                            flush_deadline = Some(Instant::now() + Duration::from_millis(FLUSH_TIMEOUT_MS));
-                        } else {
-                            flush_deadline = None;
-                        }
+                        flush_deadline = None;
                     }
                 }
 

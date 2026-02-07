@@ -6,7 +6,7 @@ pub const MAX_EDIT_RETRIES: usize = 3;
 
 // ASR chunking (character count)
 pub const MIN_SPEECH_CHARS: usize = 40;
-pub const MAX_SPEECH_CHARS: usize = 100;
+pub const MAX_SPEECH_CHARS: usize = 500;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
