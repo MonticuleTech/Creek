@@ -6,7 +6,10 @@
 
 **Real-time Collaborative Note-taking Agent Powered by Voice**
 
-by [@rexera](https://github.com/rexera) & [@LinJHS](https://github.com/LinJHS), [Monticule Tech](https://github.com/MonticuleTech).
+by [@rexera](https://github.com/rexera) & [@LinJHS](https://github.com/LinJHS), [Monticule Tech](https://github.com/MonticuleTech)
+
+[![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/PKrJtqTxgT)
+
 
 <!-- [![License](https://img.shields.io/github/license/LinJHS/creek?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/badge/version-0.1.0-green?style=flat-square)](package.json) -->
