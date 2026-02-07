@@ -28,10 +28,10 @@ The user is likely referring to something mentioned previously that is not curre
 4. The query should be keywords or a short phrase optimized for semantic search.
 
 ## Examples
-- User: "把刚才那段改一下" (Context has no recent edits) → Query: "最近一次编辑的内容"
-- User: "10分钟前说的那个功能" → Query: "功能需求描述"
-- User: "添加到前面说的列表里" (Context has no list) → Query: "之前提到的列表内容"
-- User: "继续写介绍部分" (Context is empty or unrelated) → Query: "项目介绍 背景 目标"
+- User: "Modify that previous part" (Context has no recent edits) → Query: "content of the most recent edit"
+- User: "The feature mentioned 10 minutes ago" → Query: "description of feature requirements"
+- User: "Add to the list mentioned before" (Context has no list) → Query: "content of the previously mentioned list"
+- User: "Continue writing the introduction" (Context is empty or unrelated) → Query: "project introduction background goals"
 
 ## Output
 Output ONLY the search query (no explanation, no preamble):
