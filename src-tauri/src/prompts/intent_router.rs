@@ -6,71 +6,70 @@
 // Router 1: Document Layer Intent Classification
 // ============================================================================
 
-pub const DOC_INTENT_ROUTER_PROMPT: &str = r#"你是一个意图分类器，判断用户的语音输入对文档的操作意图。
+pub const DOC_INTENT_ROUTER_PROMPT: &str = r#"You are an intent classifier that determines the user's document operation intent from their voice input.
 
-**核心原则**：Creek 是语音笔记工具，用户说的话默认应该被记录。只有明确的无意义内容才是 NO-OP。
+**Core Principle**: Creek is a voice note tool; user input should be recorded by default. Only explicitly meaningless content should be NO-OP.
 
-**任务**：从以下 5 种意图中选择 1 个：
+**Task**: Choose 1 of the following 5 intents:
 
-1. **NO-OP** - 无操作（严格限制，仅用于以下情况）
-   - **仅**无意义的语气词："嗯"、"啊"、"呃"、"那个"（单独出现，无实质内容）
-   - 纯噪音或错误识别的音频
-   - 注意：**任何有实质内容的语句都不应该是 NO-OP**
+1. **NO-OP** - No operation (Strictly limited to the following cases)
+   - **Only** meaningless fillers: "um", "ah", "uh", "that" (when appearing alone without substance)
+   - Pure noise or misrecognized audio
+   - Note: **Any statement with substance should NOT be NO-OP**
 
-2. **EDIT** - 修改现有内容（最为灵活，最常用，默认选择）
-   - “现在我们写XXX部分……”
-   - "把刚才的XXX改成YYY"
-   - "修改前面那段..."
-   - "删除刚才说的...""把……删掉"
-   - "插入到...位置"
-   - 注意：**但凡用户输入与当前文档有差异/有增量，一律选择EDIT。**
+2. **EDIT** - Modify existing content (Most flexible, most common, default choice)
+   - "Now let's write the XXX part..."
+   - "Change the previous XXX to YYY"
+   - "Modify that previous paragraph..."
+   - "Delete what I just said..." "Delete..."
+   - "Insert at... position"
+   - Note: **As long as the user input has differences or increments compared to the current document, always choose EDIT.**
 
-3. **GREP** - 全局查找替换（需要批量操作关键词）
-   - "把**所有的** XXX 改成 YYY"
-   - "**统一**替换术语"
-   - "**重命名所有**..."
-   - "**批量**修正..."
-   - 注意：**必须**包含"所有"、"全部"、"统一"、"批量"等关键词
+3. **GREP** - Global find and replace (Requires batch keyword operations)
+   - "Change **all** XXX to YYY"
+   - "**Unify** replacement of terms"
+   - "**Rename all**..."
+   - "**Batch** correct..."
+   - Note: **Must** contain keywords like "all", "every", "unify", "batch", etc.
 
-4. **UNDO** - 撤销操作（回退版本）
-   - "撤销"、"撤回"、"Undo"
-   - "不对，撤销掉"
-   - "回到上一个版本"
-   - "回到之前我们讲XXX的时候吧"
+4. **UNDO** - Undo operation (Rollback version)
+   - "Undo", "Withdraw"
+   - "That's wrong, undo it"
+   - "Back to the previous version"
+   - "Go back to when we were talking about XXX"
 
-5. **CLEAR** - 清空文档（需要明确的清空指令）
-   - "清空"、"删除全部"、"全部删掉"
-   - "重新开始"、"重置文档"
+5. **CLEAR** - Clear document (Requires explicit clearing command)
+   - "Clear", "Delete all", "Delete everything"
+   - "Start over", "Reset document"
 
-**判断流程**：
-1. 是否有实质内容？无 → NO-OP，有 → 继续
-2. 是否需要多步操作？
-3. 判断单步操作：
-   - 清空文档？ → CLEAR
-   - 撤销上一步？ → UNDO
-   - 批量替换（包含"所有"/"全部"/"统一"/"批量"）？ → GREP
-   - 修改现有内容？ → EDIT
-4. 默认 → EDIT
+**Decision Process**:
+1. Is there substantive content? No → NO-OP, Yes → Continue
+2. Does it require multi-step operations?
+3. Determine single-step operation:
+   - Clear document? → CLEAR
+   - Undo last step? → UNDO
+   - Batch replace (contains "all"/"every"/"unify"/"batch")? → GREP
+   - Modify existing content? → EDIT
+4. Default → EDIT
 
-**输出格式**：
-**输出格式**：
-请输出一个按步骤编号的计划列表。
-每一步必须按照以下格式：
-<序号>. [<意图>] <自然语言指令>
+**Output Format**:
+Output a numbered list of planned steps.
+Each step must follow this format:
+<Index>. [<Intent>] <Natural Language Instruction>
 
-示例：
-1. [EDIT] 把第一段的错别字改掉
-2. [GREP] 把所有的 Creek 改成 River
-3. [EDIT] 在结尾添加总结
+Example:
+1. [EDIT] Fix the typo in the first paragraph
+2. [GREP] Change all "Creek" to "River"
+3. [EDIT] Add a summary at the end
 
-只输出计划列表，不要 markdown 代码块。
+Output ONLY the plan list, no markdown code blocks.
 "#;
 
 pub fn build_doc_intent_query(current_doc: &str, user_input: &str) -> String {
     format!(
-        "{}\n\n## 当前文档\n```md\n{}\n```\n\n## 用户输入\n{}\n\n## 意图规划（输出单个词或 JSON 数组）：",
+        "{}\n\n## Current Document\n```md\n{}\n```\n\n## User Input\n{}\n\n## Intent Planning (Output single word or JSON array):",
         DOC_INTENT_ROUTER_PROMPT,
-        if current_doc.is_empty() { "[空文档]" } else { current_doc },
+        if current_doc.is_empty() { "[Empty Document]" } else { current_doc },
         user_input
     )
 }
@@ -79,28 +78,28 @@ pub fn build_doc_intent_query(current_doc: &str, user_input: &str) -> String {
 // Router 2: RAG Layer - Context Missing Detection
 // ============================================================================
 
-pub const RAG_NEED_ROUTER_PROMPT: &str = r#"你是一个上下文缺失检测器，判断是否需要检索历史对话。
+pub const RAG_NEED_ROUTER_PROMPT: &str = r#"You are a context missing detector that determines if historical conversations need to be retrieved.
 
-**当前上下文包括**：
-- 当前完整文档
-- 当前专注点 (focus)
-- Git 历史记录（最近 10 条 commit）
-- 待办任务列表 (todo_list)
+**Current Context Includes**:
+- Full current document
+- Current focus
+- Git history (last 10 commits)
+- Todo list (todo_list)
 
-**任务**：判断用户提到的信息是否在当前上下文中缺失。
+**Task**: Determine if the information mentioned by the user is missing from the current context.
 
-**需要检索（输出 true）的情况**：
-- 用户说"刚才那段"但当前文档找不到对应内容
-- 用户提到某个概念但当前上下文未出现
-- 用户明确引用时间范围（"10分钟前说的"）
-- 用户说"之前讨论的XXX"但当前上下文没有
+**Cases requiring retrieval (Output true)**:
+- User says "that previous segment" but it cannot be found in the current document
+- User mentions a concept that hasn't appeared in the current context
+- User explicitly refers to a time range ("what I said 10 minutes ago")
+- User says "the XXX we discussed before" but it's not in the current context
 
-**不需要检索（输出 false）的情况**：
-- 用户说"添加一个新章节"（不涉及历史）
-- 用户提到的内容在当前文档中已存在
-- 纯新增内容，不依赖历史信息
+**Cases NOT requiring retrieval (Output false)**:
+- User says "Add a new section" (Does not involve history)
+- Information mentioned by the user is already in the current document
+- Purely new content that doesn't depend on historical information
 
-**输出格式**：只输出 true 或 false
+**Output Format**: Output ONLY true or false
 "#;
 
 pub fn build_rag_need_query(
@@ -111,18 +110,18 @@ pub fn build_rag_need_query(
     user_input: &str,
 ) -> String {
     let git_history_str = if git_history.is_empty() {
-        "[无历史记录]".to_string()
+        "[No history]".to_string()
     } else {
         git_history.join("\n")
     };
 
     format!(
-        "{}\n\n## 当前上下文\n\n### 文档内容\n```md\n{}\n```\n\n### 当前专注点\n{}\n\n### Git 历史\n{}\n\n### 待办任务\n{}\n\n## 用户输入\n{}\n\n## 是否需要检索历史对话（只输出 true 或 false）：",
+        "{}\n\n## Current Context\n\n### Document Content\n```md\n{}\n```\n\n### Current Focus\n{}\n\n### Git History\n{}\n\n### Todo List\n{}\n\n## User Input\n{}\n\n## Need to retrieve history (Output ONLY true or false):",
         RAG_NEED_ROUTER_PROMPT,
-        if current_doc.is_empty() { "[空文档]" } else { current_doc },
-        if focus.is_empty() { "[无]" } else { focus },
+        if current_doc.is_empty() { "[Empty Document]" } else { current_doc },
+        if focus.is_empty() { "[None]" } else { focus },
         git_history_str,
-        if todo_list.is_empty() { "[无]" } else { todo_list },
+        if todo_list.is_empty() { "[None]" } else { todo_list },
         user_input
     )
 }
@@ -131,31 +130,31 @@ pub fn build_rag_need_query(
 // Router 3: Tool Layer - External Information Need Detection
 // ============================================================================
 
-pub const TOOL_INTENT_ROUTER_PROMPT: &str = r#"你是一个工具需求检测器，判断用户是否需要外部工具（联网搜索）。
+pub const TOOL_INTENT_ROUTER_PROMPT: &str = r#"You are a tool requirement detector that determines if the user needs external tools (web search).
 
-**任务**：判断用户意图是否需要外部信息。
+**Task**: Determine if the user's intent requires external information.
 
-**需要搜索（输出 SEARCH）的情况**：
-- "查一下XXX的最新消息"
-- "搜索XXX相关资料"
-- "帮我找一下XXX"
-- "XXX的定义是什么"（需要权威来源）
-- 需要实时数据、统计信息
+**Cases requiring search (Output SEARCH)**:
+- "Check the latest news about XXX"
+- "Search for materials related to XXX"
+- "Help me find XXX"
+- "What is the definition of XXX" (Requires authoritative source)
+- Real-time data or statistical information required
 
-**不需要工具（输出 NONE）的情况**：
-- 基于现有文档的编辑操作
-- 用户自己提供的信息
-- 常识性内容
-- 纯创作性内容
+**Cases NOT requiring tools (Output NONE)**:
+- Editing operations based on the existing document
+- Information provided by the user themselves
+- Common knowledge
+- Purely creative content
 
-**输出格式**：只输出 NONE 或 SEARCH
+**Output Format**: Output ONLY NONE or SEARCH
 "#;
 
 pub fn build_tool_intent_query(current_doc: &str, user_input: &str) -> String {
     format!(
-        "{}\n\n## 当前文档\n```md\n{}\n```\n\n## 用户输入\n{}\n\n## 工具需求（只输出 NONE 或 SEARCH）：",
+        "{}\n\n## Current Document\n```md\n{}\n```\n\n## User Input\n{}\n\n## Tool Requirement (Output ONLY NONE or SEARCH):",
         TOOL_INTENT_ROUTER_PROMPT,
-        if current_doc.is_empty() { "[空文档]" } else { current_doc },
+        if current_doc.is_empty() { "[Empty Document]" } else { current_doc },
         user_input
     )
 }

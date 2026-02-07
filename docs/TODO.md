@@ -1,0 +1,4 @@
+- [ ] Local VAD
+- [ ] Local file RAG
+- [ ] Tool: Memory, Knowledge, Web Search
+- [ ] MCP, Skill Integration
