@@ -1,128 +1,125 @@
 <div align="center">
 
-<img src="docs/assets/creek.png" alt="Creek Logo">
+<img src="docs/assets/creek.png" alt="Creek Logo" width="500">
 
-# Creek: stream to doc, like it knows you.
+# Creek
 
-**Real-time Collaborative Note-taking Agent Powered by Voice**
+### *Let that stream, on the go.*
+
+**Your Socratic companion for starting things.**
 
 by [@rexera](https://github.com/rexera) & [@LinJHS](https://github.com/LinJHS), [Monticule Tech](https://github.com/MonticuleTech)
 
 [![Discord](https://img.shields.io/badge/Discord-Join%20Us-5865F2?style=flat-square&logo=discord&logoColor=white)](https://discord.gg/PKrJtqTxgT)
-
-
-<!-- [![License](https://img.shields.io/github/license/LinJHS/creek?style=flat-square)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.1.0-green?style=flat-square)](package.json) -->
-
-<!-- [**English**](README.md) | [**中文**](docs/README-zh.md) -->
+[![License](https://img.shields.io/github/license/MonticuleTech/creek?style=flat-square)](LICENSE)
 
 </div>
 
 ---
 
-Creek is a powerful, all-platform application that transforms your voice stream into structured markdown documents. 
+## What is Creek?
 
-Built with Rust and Vue 3, it provides a seamless "Talk-to-Doc" experience through intelligent voice processing, real-time collaboration, and context-aware editing.
+Creek is a voice-powered ideation companion. It doesn't transcribe your thoughts—it **challenges them**.
 
-## ✨ Features
+Through relentless Socratic questioning, Creek helps you break through the blank page and transform raw sparks into concrete, actionable artifacts: PRDs, research proposals, project plans, paper outlines—whatever you're trying to start.
 
-- **Real-time Voice Processing**: ASR with built-in Voice Activity Detection for accurate transcription, NO manual work!
-- **Stream-to-Doc**: Continuous document evolution with incremental builds and live streaming updates
-- **Active Collaboration, Not Dictation**: The agent actively inspires you during streaming—suggesting ideas, filling knowledge gaps via web search and RAG, and structuring your thoughts as you speak
-- **Intent-Aware Routing**: Paralleled, lightweight AI routers automatically determine user intent and fetch relevant context
-- **RAG-Enhanced Assistance**: Semantic retrieval from conversation history and imported documents provides grounded, context-aware suggestions in real-time
-- **Smart Todo Management**: Automatic task generation and maintenance based on document content and user speech
-- **Dual Editing Modes**: Seamlessly switch between voice recording and manual Markdown editing
-- **Git Version Control**: Automatic commit generation with AI-powered messages for every document change
-- **Dynamic Focus Tracking**: Maintains current focus point and long-range consistency across editing sessions
+**The philosophy**: Don't let anything stand between you and your next great idea. Capture inspiration whenever it strikes, refine it through dialogue, and walk away with something real.
 
-## 💡 Motivation
+## Why Creek?
 
-Ever forgot to take notes during a project discussion? Tried audio transcription, only to find the output barely usable? 
+Voice interfaces are broken. They're either:
+- **Dumb transcribers** that vomit your words onto a page
+- **Over-eager AI** that makes assumptions and hallucinates context
 
-We have vibe coding. Why not vibe writing?
+Creek takes a different approach:
 
-**Existing pain points:**
-- **Not real-time**: You must finish recording before seeing any output
-- **Poor output quality**: Either verbose verbatim transcripts or AI summaries that miss context and make assumptions, requiring tedious manual fixes
-- **Voice interaction bottlenecks**: Easy to get stuck, hard to maintain flow
+- **Active, not passive**: We question, debate, and demand specifics
+- **Cold start focused**: We help you *start*, not do your job
+- **Human-in-the-loop**: You control the flow, we just push when you're stuck
+- **On-the-go first**: Built for mobile, low-friction, zero friction
 
-Creek leverages modern **agentic engineering:**
-- Parallel workflow pipeline with subagents
-- Git-based version control for every change
-- Multi-scale memory (short-term + current focus + RAG)
-- Full Markdown support with live rendering
+Think of Creek as a sparring partner for your brain—not a secretary.
 
-**The result?** A voice-stream-based real-time collaborative note-taking agent with incremental document building, active thinking assistance, and tool chain integration (web search, memory, knowledge). High-concurrency pipeline processing delivers ultra-low latency for the ultimate "Talk-to-Doc" experience.
+## ✨ What It Does
 
-**Perfect for:** Team meetings, project brainstorming, course lectures... Control progress in real-time, refine documents on the fly. Creek understands you and writes with you—"like it knows you."
+**Socratic Dialogue Engine**
+- Relentless questioning to crystallize vague ideas
+- Challenges assumptions, demands specifics
+- Maintains an evolving artifact throughout the conversation
+
+**Intelligent Tool Use**
+- Auto-invokes search, analysis, code generation when needed
+- MCP/Skills marketplace for domain expertise
+- No manual tool management—just think
+
+**Artifact Generation**
+- Living documents that evolve with your thinking
+- PRDs, research proposals, project plans, reports
+- Markdown-native, version-controlled, exportable
+
+**Context Engineering**
+- Smart context window management
+- Multi-scale memory (short-term + RAG)
+- Extreme context compression without losing meaning
 
 ## 🏗️ Architecture
 
-Creek uses a sophisticated pipeline architecture built entirely in Rust for maximum performance:
+```
+[Voice Stream] 
+    ↓
+[ASR Service] (WebSocket)
+    ↓
+[Socratic Agent] ← Challenges & Questions
+    ↓
+[Intent Router] (Parallel: Document/RAG/Tool layers)
+    ↓
+[Tool Invocation] → Search/Analysis/Skills
+    ↓
+[Artifact Update] (SEARCH/REPLACE blocks)
+    ↓
+[Git Commit] + [State Persistence]
+    ↓
+[Frontend Sync]
+```
 
-```
---> [Audio Stream] --> [ASR Service]
-    --> [Intent Router] (Parallel)
-    --> [Tool Use, RAG Retrieval]
-    --> [LLM Processing] (Parallel)
-    --> [Document Update]
-    --> [Git Commit]
-    --> [Database Persistence]
-    --> [Frontend Emit]
-```
+Built in Rust with Tauri 2.0 for max performance. The entire pipeline—from voice to artifact—is sub-100ms latency.
 
 ### Core Components
 
-- **Intent Router**: Three parallel AI routers (Document Layer, RAG Layer, Tool Layer) determine user intent
-- **State Manager**: Multi-level state management with SQLite persistence (current doc, focus, git history, todos)
-- **RAG Service**: Semantic retrieval using fastembed-rs and LanceDB with 0.7 similarity threshold
-- **Todo Agent**: Automatic task generation and maintenance driven by LLM analysis
-- **Git Manager**: Version control with auto-generated commit messages using git2-rs
-- **Document Service**: Incremental editing engine using SEARCH/REPLACE protocol inspired by Aider
+| Component | Tech | Purpose |
+|-----------|------|---------|
+| **Socratic Agent** | Custom LLM pipeline | Relentless questioning engine |
+| **Intent Router** | Parallel lightweight models | Intent classification (Document/RAG/Tool) |
+| **Context Manager** | Compression + RAG | Smart context window optimization |
+| **Artifact Service** | SEARCH/REPLACE protocol | Incremental document editing |
+| **Skills Engine** | MCP standard | Plugin marketplace |
+| **State Manager** | SQLite + Git | Persistence and version control |
 
-## 🚀 Technology Stack
+## 🚀 Stack
 
-### Backend
-- **Framework**: Tauri 2.0 (Rust)
-- **LLM Integration**: Alibaba Cloud Qwen models (qwen-flash for routing, qwen3-30b for editing)
-- **Vector Database**: LanceDB (Rust-native, zero-copy)
-- **Embeddings**: fastembed-rs with BGE-Small-ZH-v1.5
-- **Version Control**: git2-rs
-- **Async Runtime**: Tokio
+**Backend (Rust)**
+- Tauri 2.0, Tokio, LanceDB, fastembed-rs, git2-rs
+- LLM: Qwen (routing) + Qwen-Coder (editing)
 
-### Frontend
-- **Framework**: Vue 3 (Composition API)
-- **UI Library**: Bootstrap 5
-- **State Management**: Pinia
-- **Build Tool**: Vite
-- **Markdown Rendering**: markdown-it
-- **Diagram Support**: Mermaid
+**Frontend (Vue 3)**
+- Composition API, Pinia, Bootstrap 5, Vite
+- markdown-it, Mermaid
 
-## 📦 Installation
+## 📦 Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/MonticuleTech/creek.git
 cd creek
 
-# Install dependencies
 pnpm install
-
-# Set up environment variables
 cp .env.example .env
-# Edit .env with your API credentials
+# Add your API keys
 
-# Run in development mode
-pnpm tauri dev
-
-# Build for production
-pnpm tauri build
+pnpm tauri dev     # Run dev
+pnpm tauri build   # Build release
 ```
 
-## ⚙️ Configuration
-
-Create a `.env` file with your API credentials:
+## ⚙️ Config
 
 ```env
 OPENAI_API_KEY='sk-xxx'
@@ -130,77 +127,56 @@ BASE_URL='https://api.openai.com/v1'
 ```
 
 > [!NOTE]
-> Currently, the intelligence cores of Creek are `openai` compatible, yet for ASR module, only Alibaba `dashscope` ASR models are supported (note that it's a shared API key). We will expand the configuration options in the future, and welcome contributions!
-> 
-> Modify `src-tauri/src/services/asr_service.rs` to specify ASR model and URL.
+> Intelligence cores are OpenAI-compatible. ASR currently only supports Alibaba Dashscope (shared API key). We'll expand this—PRs welcome!
 
 ## 🎯 Usage
 
-### Quick Tour
+**1. Create a Workspace**
+Start a project to isolate your ideation context.
 
-1. **Create a Workspace**: Start by creating a project-based workspace to isolate your context
-2. **Start Recording**: Click the microphone button to begin voice recording
-3. **Talk Naturally**: Speak your thoughts - Creek will automatically structure them into documents; 
-4. **Edit Flexibly**: Switch to manual editing mode anytime to refine the Markdown source
-5. (Coming soon) **Import Resources**: Add PDF/Markdown files as reference materials for RAG-enhanced generation
-6. **Track Progress**: View auto-generated todos and git history in real-time
+**2. Start Talking**
+Voice-first when walking, commuting, or pacing. Creek pushes back when you're vague.
 
-### How to Interact with Creek? (Some Practices)
+**3. Get Challenged**
+- You: "I want to build an app for... connecting people..."
+- Creek: "What specific problem? Who has it? How painful?"
 
-Creek is not just a passive dictation tool—it's an active collaborator. Here's how to get the most out of it:
+**4. Iterate**
+Accept or reject suggestions. The artifact evolves with your thinking.
 
-**1. Speak Directly (Structure Your Thoughts)**
-- "Let's outline three key pillars of agentic AI."
-- "First, multi-scale memory: context grounding via short-term and long-term retrieval."
-- Creek will automatically create headers, bullet points, and structure while you speak.
+**5. Walk Away With Something**
+When you're ready, export your artifact and go build it.
 
-**2. Ask for Inspiration (Get Unstuck)**
-- "What should I talk about next for the memory module?"
-- "Can you suggest some challenges in multi-agent systems?"
-- Creek actively provides suggestions, fills knowledge gaps via web search and RAG, and helps you continue the flow.
+## 📊 Status
 
-**3. Correct and Refine (Iterate Freely)**
-- "Actually, scratch that last point. Let's call it 'Dynamic Context' instead."
-- "Undo that."
-- "Change the second paragraph to emphasize performance."
-- Creek instantly updates the document, and every change is git-versioned for fearless creativity.
+**Working Now**
+- Voice pipeline + ASR integration
+- Socratic questioning prototype
+- Intent routing (3 parallel layers)
+- RAG with LanceDB + fastembed
+- Git auto-commit
+- Workspace isolation
 
-**4. Request Actions (Command Your Agent)**
-- "Search for the latest research on retrieval-augmented generation."
-- "Add a citation from my knowledge base."
-- "Create a todo for implementing the search feature."
-- Creek proactively executes tool use and keeps your workflow moving.
-
-
-## 📊 Project Status
-
-### Fully Implemented ✅
-- Pipeline orchestration
-- Intent Router (3 parallel routers)
-- State Manager with SQLite persistence
-- RAG Service with fastembed + LanceDB
-- Todo Agent with LLM-based maintenance
-- Git Manager with auto-commit
-- Document Service with Aider SEARCH/REPLACE protocol
-- ASR Service integration
-- LLM Client with dual model strategy
-- Tauri commands and events
-
-### In Progress 🚧
-- Frontend UI enhancements with SEXY animations
-- Web search integration
-- Memory pad, knowledge, ...
-- Workspace file RAG
-- Advanced context compression and long-document support
-- MCP/Skills Marketplace Integration
-- ...and more!
+**Coming Soon**
+- Full Socratic engine
+- Context compression magic
+- Skills marketplace
+- MCP integration
+- Token proxy infrastructure
+- Mobile polish
 
 ## 🤝 Contributing
 
-**Creek is a work in progress, so any contribution is welcome!**
+Creek is early. We'd love your help.
 
-Please feel free to open an Issue or submit a Pull Request. This means a lot for us and the community!
+Issues, PRs, ideas—all welcome. Join the [Discord](https://discord.gg/PKrJtqTxgT) to chat.
 
 ## 📄 License
 
-This project is licensed under the GPL-3.0 License - see [LICENSE](LICENSE) for details.
+GPL-3.0
+
+---
+
+*Built with ❤️ by Monticule Tech*
+
+*Let that stream, on the go.* 
