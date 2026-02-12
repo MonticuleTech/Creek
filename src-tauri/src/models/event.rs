@@ -1,5 +1,5 @@
-use serde::{Serialize, Deserialize};
 use crate::modules::TodoItem;
+use serde::{Deserialize, Serialize};
 
 /// Update from ASR (simulated or real)
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -45,7 +45,7 @@ impl ToastPayload {
             duration: Some(5000), // 5 seconds for errors
         }
     }
-    
+
     pub fn warning(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -53,7 +53,7 @@ impl ToastPayload {
             duration: Some(4000),
         }
     }
-    
+
     pub fn success(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -61,7 +61,7 @@ impl ToastPayload {
             duration: Some(3000),
         }
     }
-    
+
     pub fn info(message: impl Into<String>) -> Self {
         Self {
             message: message.into(),
@@ -69,6 +69,13 @@ impl ToastPayload {
             duration: Some(3000),
         }
     }
+}
+
+/// Web search results for frontend display
+#[derive(Clone, Serialize, Deserialize, Debug)]
+pub struct SearchResultsPayload {
+    pub query: String,
+    pub content: String,
 }
 
 #[derive(Clone, Serialize, Deserialize, Debug)]

@@ -73,6 +73,14 @@
             @update:content="handleDocumentUpdate"
           />
         </div>
+
+        <!-- Search Results Panel (slides in from right) -->
+        <SearchResultsPanel
+          :visible="showSearchPanel"
+          :query="searchQuery"
+          :content="searchContent"
+          @close="showSearchPanel = false"
+        />
       </div>
     </div>
   </div>
@@ -82,7 +90,7 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { 
   BaseDirectory, 
   exists, 
@@ -103,6 +111,7 @@ import LiveCanvas from '@/components/LiveCanvas.vue';
 import RenameModal from '@/components/RenameModal.vue';
 import WorkspaceSidebar from '@/components/workspace/WorkspaceSidebar.vue';
 import WorkspaceToolbar from '@/components/workspace/WorkspaceToolbar.vue';
+import SearchResultsPanel from '@/components/SearchResultsPanel.vue';
 
 export default {
   name: 'WorkspaceView',
@@ -113,10 +122,12 @@ export default {
     LiveCanvas,
     RenameModal,
     WorkspaceSidebar,
-    WorkspaceToolbar
+    WorkspaceToolbar,
+    SearchResultsPanel
   },
   setup() {
     const router = useRouter();
+    const route = useRoute();
     const files = ref([]);
     const recordings = ref([]);
     const isRecording = ref(false);
@@ -124,6 +135,14 @@ export default {
     const documentContent = ref('');
     const micVolume = ref(0);
     const isThinking = ref(false); // Reactive state for agent thinking
+    
+    // Search results panel state
+    const showSearchPanel = ref(false);
+    const searchQuery = ref('');
+    const searchContent = ref('');
+    
+    // Workspace-scoped uploads path (fetched from backend)
+    const uploadsPath = ref('');
     
     // Selection state
     const selectedFile = ref(null);
@@ -152,21 +171,17 @@ export default {
     let recordingStartedUnlisten = null;
     let saveTimer = null;
     let pendingSave = null;
-    let audioContext = null;
-    let analyser = null;
-    let microphone = null;
+    let micVolumeUnlisten = null;
 
-    // 初始化文件系统目录
+    // Initialize file system directories (workspace-scoped)
     const initFileSystem = async () => {
       try {
-        const creekDirExists = await exists('creek', { baseDir: BaseDirectory.AppData });
-        if (!creekDirExists) {
-          await mkdir('creek', { baseDir: BaseDirectory.AppData, recursive: true });
-        }
-
-        const uploadsDirExists = await exists('creek/uploads', { baseDir: BaseDirectory.AppData });
+        const workspaceId = route.params.id;
+        uploadsPath.value = await invoke('get_workspace_uploads_path', { workspaceId });
+        
+        const uploadsDirExists = await exists(uploadsPath.value, { baseDir: BaseDirectory.AppData });
         if (!uploadsDirExists) {
-          await mkdir('creek/uploads', { baseDir: BaseDirectory.AppData, recursive: true });
+          await mkdir(uploadsPath.value, { baseDir: BaseDirectory.AppData, recursive: true });
         }
       } catch (err) {
         console.error('Failed to initialize file system:', err);
@@ -175,7 +190,7 @@ export default {
 
     const loadFiles = async () => {
       try {
-        const entries = await readDir('creek/uploads', { baseDir: BaseDirectory.AppData });
+        const entries = await readDir(uploadsPath.value, { baseDir: BaseDirectory.AppData });
         const loadedFiles = [];
         
         for (const entry of entries) {
@@ -188,7 +203,7 @@ export default {
             });
           } else if (entry.name) {
             try {
-              const filePath = `creek/uploads/${entry.name}`;
+              const filePath = `${uploadsPath.value}/${entry.name}`;
               const isText = entry.name.endsWith('.txt') || entry.name.endsWith('.md');
               let content = null;
               
@@ -258,7 +273,7 @@ export default {
             const fileName = file.name; // Keep original extension
             const isText = fileName.endsWith('.txt') || fileName.endsWith('.md');
             
-            await writeFile(`creek/uploads/${fileName}`, new Uint8Array(arrayBuffer), { 
+            await writeFile(`${uploadsPath.value}/${fileName}`, new Uint8Array(arrayBuffer), { 
               baseDir: BaseDirectory.AppData 
             });
             
@@ -390,7 +405,7 @@ export default {
             delete localRecordings.value[fileName];
             recordings.value = recordings.value.filter(r => r.id !== fileName);
           } else {
-            await remove(`creek/uploads/${fileName}`, { baseDir: BaseDirectory.AppData });
+            await remove(`${uploadsPath.value}/${fileName}`, { baseDir: BaseDirectory.AppData });
             localFiles.value = localFiles.value.filter(f => f.name !== fileName);
             files.value = [...localFiles.value];
           }
@@ -426,7 +441,7 @@ export default {
             const fileName = file.name; // Keep original extension
             const isText = fileName.endsWith('.txt') || fileName.endsWith('.md');
 
-            await writeFile(`creek/uploads/${fileName}`, new Uint8Array(arrayBuffer), {
+            await writeFile(`${uploadsPath.value}/${fileName}`, new Uint8Array(arrayBuffer), {
               baseDir: BaseDirectory.AppData
             });
 
@@ -504,8 +519,8 @@ export default {
              
           try {
             await rename(
-              `creek/uploads/${oldNameFile}`,
-              `creek/uploads/${newName}`,
+              `${uploadsPath.value}/${oldNameFile}`,
+              `${uploadsPath.value}/${newName}`,
               { baseDir: BaseDirectory.AppData }
             );
             
@@ -589,63 +604,6 @@ export default {
       }
     };
 
-    const startMicMonitoring = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        analyser = audioContext.createAnalyser();
-        microphone = audioContext.createMediaStreamSource(stream);
-        analyser.fftSize = 2048;
-        analyser.smoothingTimeConstant = 0;
-        microphone.connect(analyser);
-        
-        const bufferLength = analyser.fftSize;
-        const dataArray = new Uint8Array(bufferLength);
-        
-        const updateVolume = () => {
-          if (!isRecording.value || isPaused.value) {
-            micVolume.value = 0;
-            requestAnimationFrame(updateVolume);
-            return;
-          }
-          
-          analyser.getByteTimeDomainData(dataArray);
-          
-          let max = 0;
-          for (let i = 0; i < bufferLength; i++) {
-            const amplitude = Math.abs(dataArray[i] - 128);
-            if (amplitude > max) {
-              max = amplitude;
-            }
-          }
-          
-          micVolume.value = Math.min(100, (max / 128) * 100);
-          requestAnimationFrame(updateVolume);
-        };
-        
-        requestAnimationFrame(updateVolume);
-      } catch (err) {
-        console.error('Failed to access microphone:', err);
-      }
-    };
-
-    const stopMicMonitoring = () => {
-      if (microphone) {
-        const stream = microphone.mediaStream;
-        if (stream) {
-          stream.getTracks().forEach(track => track.stop());
-        }
-        microphone.disconnect();
-        microphone = null;
-      }
-      if (audioContext) {
-        audioContext.close();
-        audioContext = null;
-      }
-      analyser = null;
-      micVolume.value = 0;
-    };
-
     const startRecording = async () => {
       try {
         if (!currentEditingFile.value || !isEditingRecording.value) {
@@ -660,8 +618,6 @@ export default {
         await invoke('start_recording', { recordingId: recordingId });
         isRecording.value = true;
         isPaused.value = false;
-        
-        await startMicMonitoring();
       } catch (err) {
         console.error('Failed to start recording:', err);
       }
@@ -686,8 +642,6 @@ export default {
         await invoke('stop_recording');
         isRecording.value = false;
         isPaused.value = false;
-        
-        stopMicMonitoring();
         
         await loadRecordings();
       } catch (err) {
@@ -731,7 +685,7 @@ export default {
         return;
       }
 
-      await writeTextFile(`creek/uploads/${fileId}`, content, {
+      await writeTextFile(`${uploadsPath.value}/${fileId}`, content, {
         baseDir: BaseDirectory.AppData
       });
       const fileIndex = localFiles.value.findIndex(f => f.name === fileId);
@@ -898,6 +852,13 @@ export default {
           }
       });
 
+      const searchResultsUnlisten = await listen('search-results', (event) => {
+        const { query, content } = event.payload;
+        searchQuery.value = query || '';
+        searchContent.value = content || '';
+        showSearchPanel.value = true;
+      });
+
       recordingStartedUnlisten = await listen('recording-started', (event) => {
         const recordingId = event.payload.recording_id;
         if (!recordings.value.some(r => r.id === recordingId)) {
@@ -931,13 +892,18 @@ export default {
         }
       });
 
+      micVolumeUnlisten = await listen('mic-volume', (event) => {
+        micVolume.value = event.payload;
+      });
+
       onUnmounted(() => {
         if (documentUpdateUnlisten) documentUpdateUnlisten();
         if (recordingStartedUnlisten) recordingStartedUnlisten();
         if (agentStatusUnlisten) agentStatusUnlisten();
+        if (searchResultsUnlisten) searchResultsUnlisten();
         if (recordingsUpdatedUnlisten) recordingsUpdatedUnlisten();
         if (recordingRenamedUnlisten) recordingRenamedUnlisten();
-        stopMicMonitoring();
+        if (micVolumeUnlisten) micVolumeUnlisten();
       });
     });
 
@@ -981,7 +947,11 @@ export default {
       startResize,
       navigateBack,
       isSidebarCollapsed,
-      toggleSidebar
+      toggleSidebar,
+      // Search panel
+      showSearchPanel,
+      searchQuery,
+      searchContent
     };
   }
 };
@@ -1066,6 +1036,7 @@ export default {
   background: #f8f9f3;
   min-height: 0; /* Important for flex children */
   min-width: 0;
+  position: relative; /* Anchor for SearchResultsPanel */
 }
 
 /* Canvas area */

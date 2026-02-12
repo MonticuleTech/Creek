@@ -37,6 +37,7 @@ pub use recording_commands::{list_recordings, get_recording, update_recording, d
 // Re-export workspace commands
 pub use workspace_commands::{
     create_workspace, list_workspaces, rename_workspace, 
-    delete_workspace, get_current_workspace, set_current_workspace
+    delete_workspace, get_current_workspace, set_current_workspace,
+    get_workspace_uploads_path
 };
 

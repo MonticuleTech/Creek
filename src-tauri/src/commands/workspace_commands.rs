@@ -55,3 +55,14 @@ pub async fn set_current_workspace(
     let manager = workspace_manager.read().await;
     manager.set_current_workspace(id)
 }
+
+/// Returns the relative uploads directory path for a workspace (relative to AppData).
+/// Used by frontend FS plugin operations which operate under BaseDirectory.AppData.
+#[tauri::command]
+pub async fn get_workspace_uploads_path(
+    workspace_id: String,
+    workspace_manager: State<'_, Arc<RwLock<WorkspaceManager>>>,
+) -> Result<String, String> {
+    let manager = workspace_manager.read().await;
+    manager.get_workspace_uploads_path(workspace_id)
+}

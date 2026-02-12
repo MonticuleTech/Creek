@@ -8,6 +8,9 @@ use uuid::Uuid;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use log::{info, error, debug};
 use tokio_util::sync::CancellationToken;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter};
 
 const QWEN_MODEL: &str = "qwen3-asr-flash-realtime";
 const WS_URL: &str = "wss://dashscope.aliyuncs.com/api-ws/v1/realtime";
@@ -30,7 +33,7 @@ impl AsrService {
         self.tx_sender = Some(tx);
     }
 
-    pub async fn start_recording(&self, cancel_token: CancellationToken) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    pub async fn start_recording(&self, cancel_token: CancellationToken, app_handle: AppHandle) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         let api_key = self.api_key.clone();
         let sender = self.tx_sender.clone();
 
@@ -56,10 +59,6 @@ impl AsrService {
         }
 
         let config = input_device.default_input_config()?;
-        // Force sample rate if possible, or resample. 
-        // Aliyun usually expects 16000Hz PCM. 
-        // For simplicity here, we assume device supports it or we accept mismatch (might fail).
-        // A robust impl would do resampling.
         
         #[allow(deprecated)]
         let device_name_2 = input_device.name().unwrap_or("unknown".into());
@@ -68,7 +67,7 @@ impl AsrService {
         
         // Spawn async setup to avoid blocking
         tokio::spawn(async move {
-            if let Err(e) = Self::run_async_recording(api_key, sender, input_device, config, cancel_token).await {
+            if let Err(e) = Self::run_async_recording(api_key, sender, input_device, config, cancel_token, app_handle).await {
                 error!("Async recording error: {}", e);
             }
         });
@@ -82,6 +81,7 @@ impl AsrService {
         input_device: cpal::Device,
         config: cpal::SupportedStreamConfig,
         cancel_token: CancellationToken,
+        app_handle: AppHandle,
     ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         // 2. Connect WebSocket
@@ -186,28 +186,107 @@ impl AsrService {
         // Channel to pass audio data from cpal thread to ws writer
         let (audio_tx, mut audio_rx) = mpsc::unbounded_channel::<Vec<u8>>();
         
-        let sample_rate = config.sample_rate();
-        info!("Input Sample Rate: {}", sample_rate);
+        let source_rate = config.sample_rate();
+        let channels = config.channels() as usize;
+        info!("Input Sample Rate: {}, Channels: {}", source_rate, channels);
         
-        // Simple decimation factor (downsampling)
-        let downsample_factor = (sample_rate as f32 / 16000.0).round() as usize;
-        let downsample_factor = if downsample_factor < 1 { 1 } else { downsample_factor };
-        
-        info!("Downsample factor: {}", downsample_factor);
+        // Fractional resampling: source_rate -> 16000 Hz
+        let step = source_rate as f64 / 16000.0;
+        info!("Resample step: {:.6} (ratio {}:16000)", step, source_rate);
+
+        // 1-pole low-pass prefilter to reduce aliasing before downsampling.
+        // Cutoff at 7000 Hz (below Nyquist of 16 kHz target).
+        let cutoff: f64 = 7000.0;
+        let alpha: f32 = (2.0 * std::f64::consts::PI * cutoff
+            / (2.0 * std::f64::consts::PI * cutoff + source_rate as f64)) as f32;
+
+        // Streaming state shared across callback invocations (mutable, captured by closure).
+        // src_pos tracks fractional position carried from previous buffer.
+        let mut src_pos: f64 = 0.0;
+        let mut last_sample: f32 = 0.0;
+        let mut prev_filtered: f32 = 0.0;
+
+        // Atomic volume level for the emission task
+        let volume_level = Arc::new(AtomicU32::new(0));
+        let volume_writer = volume_level.clone();
 
         let stream = input_device.build_input_stream(
             &config.into(),
             move |data: &[f32], _: &_| {
-                // Convert f32 samples to i16 (PCM)
-                // cpal gives f32 usually, need to scale to i16 range
-                // Simple downsampling
-                let mut pcm_bytes = Vec::with_capacity((data.len() / downsample_factor) * 2);
-                for (i, &sample) in data.iter().enumerate() {
-                    if i % downsample_factor == 0 {
-                         let s = (sample * 32767.0) as i16;
-                         pcm_bytes.extend_from_slice(&s.to_le_bytes());
-                    }
+                // Step 1: Downmix to mono if multi-channel
+                let mono: Vec<f32> = if channels > 1 {
+                    data.chunks_exact(channels)
+                        .map(|frame| {
+                            let sum: f32 = frame.iter().sum();
+                            sum / channels as f32
+                        })
+                        .collect()
+                } else {
+                    data.to_vec()
+                };
+
+                let mono_len = mono.len();
+                if mono_len == 0 {
+                    return;
                 }
+
+                // Step 2: Apply 1-pole low-pass filter in-place
+                let mut filtered = Vec::with_capacity(mono_len);
+                for &raw in &mono {
+                    let f = alpha * raw + (1.0 - alpha) * prev_filtered;
+                    prev_filtered = f;
+                    filtered.push(f);
+                }
+
+                // Step 3: Fractional linear-interpolation resampling
+                // Estimate output size: mono_len / step, plus a small margin
+                let est_out = (mono_len as f64 / step) as usize + 2;
+                let mut pcm_bytes = Vec::with_capacity(est_out * 2);
+                let mut resampled_samples: Vec<f32> = Vec::with_capacity(est_out);
+
+                while src_pos < mono_len as f64 {
+                    let idx = src_pos.floor() as usize;
+                    let frac = (src_pos - idx as f64) as f32;
+
+                    // For idx == 0 and first buffer, use last_sample from previous buffer
+                    let s0 = if idx == 0 {
+                        last_sample
+                    } else {
+                        filtered[idx - 1]
+                    };
+                    let s1 = if idx < mono_len {
+                        filtered[idx]
+                    } else {
+                        // Past end: hold last value
+                        filtered[mono_len - 1]
+                    };
+
+                    let interpolated = s0 + frac * (s1 - s0);
+                    resampled_samples.push(interpolated);
+                    let s = (interpolated * 32767.0).round()
+                        .max(-32768.0)
+                        .min(32767.0) as i16;
+                    pcm_bytes.extend_from_slice(&s.to_le_bytes());
+
+                    src_pos += step;
+                }
+
+                // Carry state to next callback
+                src_pos -= mono_len as f64;
+                last_sample = *filtered.last().unwrap_or(&0.0);
+
+                // Step 4: Compute RMS volume on resampled samples
+                if !resampled_samples.is_empty() {
+                    let sum_sq: f64 = resampled_samples
+                        .iter()
+                        .map(|&s| (s as f64) * (s as f64))
+                        .sum();
+                    let rms = (sum_sq / resampled_samples.len() as f64).sqrt();
+                    let db = 20.0 * (rms.max(1e-10)).log10();
+                    let level = ((db + 60.0) / 60.0 * 100.0).clamp(0.0, 100.0) as u32;
+                    volume_writer.store(level, Ordering::Relaxed);
+                }
+
                 let _ = audio_tx.send(pcm_bytes);
             },
             err_fn,
@@ -215,6 +294,24 @@ impl AsrService {
         )?;
         
         stream.play()?;
+
+        // Spawn volume emission task (~25 Hz)
+        let volume_reader = volume_level.clone();
+        let volume_handle = app_handle.clone();
+        let volume_token = cancel_token.clone();
+        tokio::spawn(async move {
+            loop {
+                tokio::select! {
+                    _ = volume_token.cancelled() => break,
+                    _ = tokio::time::sleep(tokio::time::Duration::from_millis(40)) => {
+                        let level = volume_reader.load(Ordering::Relaxed);
+                        let _ = volume_handle.emit("mic-volume", level);
+                    }
+                }
+            }
+            // Emit 0 on stop
+            let _ = volume_handle.emit("mic-volume", 0u32);
+        });
         
         // Loop sending audio
         loop {

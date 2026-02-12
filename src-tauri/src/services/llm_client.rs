@@ -72,6 +72,58 @@ impl OpenAILikeClient {
             enable_thinking: Some(enable_thinking),
         }
     }
+
+    /// Non-streaming chat with Dashscope web search enabled.
+    /// Sends `enable_search: true` at the request body top level.
+    pub async fn chat_with_search(
+        &self,
+        messages: Vec<ChatMessage>,
+    ) -> Result<String, LLMError> {
+        let url = format!("{}/chat/completions", self.base_url);
+        let body = json!({
+            "model": self.model,
+            "messages": messages,
+            "stream": false,
+            "enable_search": true,
+            "search_options": {
+                "forced_search": true,
+                "search_strategy": "turbo"
+            }
+        });
+
+        let resp = self.client
+            .post(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
+            .json(&body)
+            .send()
+            .await
+            .map_err(|e| LLMError::RequestFailed(e.to_string()))?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body_text = resp.text().await.unwrap_or_default();
+            return Err(LLMError::RequestFailed(
+                format!("HTTP {}: {}", status, body_text)
+            ));
+        }
+
+        let text = resp.text().await
+            .map_err(|e| LLMError::RequestFailed(e.to_string()))?;
+
+        let parsed: Value = serde_json::from_str(&text)
+            .map_err(|e| LLMError::ParseError(
+                format!("Failed to parse search response: {}", e)
+            ))?;
+
+        let content = parsed["choices"][0]["message"]["content"]
+            .as_str()
+            .ok_or_else(|| LLMError::ParseError(
+                "Missing choices[0].message.content in search response".to_string()
+            ))?;
+
+        Ok(content.to_string())
+    }
 }
 
 #[async_trait]

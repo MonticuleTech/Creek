@@ -188,8 +188,9 @@ pub async fn process_transcript(
 
     let search_task = {
         let tool_intent = tool_intent.clone();
+        let llm_flash = Arc::clone(&llm_flash);
         tokio::spawn(async move {
-            SearchAgent::gather(&tool_intent).await
+            SearchAgent::gather(&tool_intent, &llm_flash).await
         })
     };
 
@@ -197,6 +198,20 @@ pub async fn process_transcript(
     
     let retrieved_context = rag_result.unwrap_or_else(|_| Ok(String::new())).unwrap_or_default();
     let search_results = search_result.unwrap_or_else(|_| Ok(String::new())).unwrap_or_default();
+
+    if !search_results.is_empty() {
+        let query = match &tool_intent {
+            crate::modules::intent_router::ToolIntent::Search(q) => q.clone(),
+            _ => String::new(),
+        };
+        let _ = app_handle.emit(
+            "search-results",
+            crate::models::event::SearchResultsPayload {
+                query,
+                content: search_results.clone(),
+            },
+        );
+    }
 
     // ===================================================================
     // 3. Initialize Agent Context (Blackboard)

@@ -144,11 +144,5 @@ impl AppendAgent {
         } else {
             msg.push_str(&ctx.retrieved_context);
         }
-        
-        if !ctx.search_results.is_empty() {
-            msg.push_str("\n### Search Results\n");
-            msg.push_str(&ctx.search_results);
-            msg.push_str("\n");
-        }
     }
 }

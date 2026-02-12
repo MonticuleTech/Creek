@@ -207,8 +207,9 @@ pub async fn run_pipeline(app_handle: AppHandle, mut cmd_rx: mpsc::Receiver<Pipe
                                 let token = CancellationToken::new();
                                 asr_cancellation_token = Some(token.clone());
                                 let asr_clone = asr.clone();
+                                let app_clone_asr = app_handle.clone();
                                 tokio::spawn(async move {
-                                    if let Err(e) = asr_clone.start_recording(token).await {
+                                    if let Err(e) = asr_clone.start_recording(token, app_clone_asr).await {
                                         error!("ASR Error: {}", e);
                                     }
                                 });

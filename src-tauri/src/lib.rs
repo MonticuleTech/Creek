@@ -172,6 +172,7 @@ pub fn run() {
             commands::workspace_commands::delete_workspace,
             commands::workspace_commands::get_current_workspace,
             commands::workspace_commands::set_current_workspace,
+            commands::workspace_commands::get_workspace_uploads_path,
             load_recording,
         ])
         .run(tauri::generate_context!())
